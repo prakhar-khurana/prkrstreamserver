@@ -445,17 +445,21 @@ class TopicManager:
         Subscribe a client to a topic.
         
         Returns replay messages if last_n > 0, None if topic doesn't exist.
+
+        IMPORTANT: Get replay messages BEFORE adding subscriber.
+        This prevents a race condition where the topic delivery worker can
+        send live messages while replay is being sent.
         """
         topic = self.get_topic(topic_name)
         if not topic:
             return None
-        
+
+        replay_messages = topic.get_replay_messages(last_n) if last_n > 0 else []
+
         subscriber = Subscriber(client_id, topic_name, websocket)
         topic.add_subscriber(subscriber)
-        
-        if last_n > 0:
-            return topic.get_replay_messages(last_n)
-        return []
+
+        return replay_messages
     
     def unsubscribe(self, topic_name: str, client_id: UUID) -> bool:
         """

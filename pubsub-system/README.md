@@ -373,6 +373,39 @@ docker run -p 8000:8000 pubsub-system
 
 The server will be available at `http://localhost:8000`
 
+## 📊 Observability Dashboard (Optional)
+
+A Streamlit-based read-only dashboard is provided to visualize internal system metrics such as queue depth, batching behavior, throughput, and latency. This dashboard does not participate in message delivery and is intended solely for monitoring and demonstration.
+
+### Features
+
+- **System Overview**: Active topics, subscribers, publish/delivery rates, uptime
+- **Topic Drilldown**: Queue depth, batch size, message counts per topic
+- **Latency Visualization**: Avg/P95/P99 latency with rolling window charts
+- **Backpressure Visibility**: Drop counts, queue saturation indicators
+
+### Running the Dashboard
+
+```bash
+# Install dashboard dependencies
+pip install -r dashboard/requirements.txt
+
+# Start the dashboard (backend must be running)
+streamlit run dashboard/app.py
+```
+
+The dashboard will be available at `http://localhost:8501`
+
+### Important Notes
+
+- ❌ **NO publishing** messages from the dashboard
+- ❌ **NO subscribing** clients from the dashboard
+- ❌ **NO WebSocket** connections from the dashboard
+- ❌ **NO control-plane** actions
+- ✅ **Read-only** metrics polling via HTTP
+
+The dashboard polls the `/metrics` endpoint every second and maintains a rolling window of the last 120 samples for time-series visualization.
+
 ## 🧪 Testing with WebSocket Client
 
 ### Using Python

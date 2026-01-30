@@ -282,21 +282,27 @@ class StressTestRunner:
                 if data.get("type") == "event":
                     received_replay.append(data["data"]["seq"])
             
-            # Publish new messages
+            # Publish new messages (don't wait for acks individually - they may interleave with events)
             for i in range(100, 110):
                 await ws.send(json.dumps({
                     "type": "publish",
                     "topic": topic_name,
                     "data": {"seq": i}
                 }))
-                await ws.recv()  # ack
             
-            # Receive live messages
-            for _ in range(10):
-                msg = await asyncio.wait_for(ws.recv(), timeout=5)
-                data = json.loads(msg)
-                if data.get("type") == "event":
-                    received_live.append(data["data"]["seq"])
+            # Collect all responses: 10 acks + 10 events (may be interleaved)
+            acks_received = 0
+            events_needed = 10
+            while acks_received < 10 or len(received_live) < events_needed:
+                try:
+                    msg = await asyncio.wait_for(ws.recv(), timeout=5)
+                    data = json.loads(msg)
+                    if data.get("type") == "event":
+                        received_live.append(data["data"]["seq"])
+                    elif data.get("type") == "ack" and data.get("request_type") == "publish":
+                        acks_received += 1
+                except asyncio.TimeoutError:
+                    break
         
         requests.delete(f"{BASE_URL}/topics/{topic_name}")
         

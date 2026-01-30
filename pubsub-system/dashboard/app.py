@@ -196,7 +196,7 @@ def page_system_overview(metrics: Dict[str, Any]):
     st.markdown("Real-time system-wide metrics")
     
     global_data = metrics.get("global", {})
-    uptime = metrics.get("uptime_seconds", 0)
+    uptime = metrics.get("uptime_sec", 0)
     
     # Calculate rates from history
     history = st.session_state.metrics_history
