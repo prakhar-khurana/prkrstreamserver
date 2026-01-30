@@ -1,0 +1,74 @@
+⚠️  Make sure the server is running on http://localhost:8000
+   Start it with: ./run.sh
+
+Press Enter to start stress tests...
+🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀
+STARTING COMPREHENSIVE STRESS TEST SUITE
+🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀
+
+================================================================================
+🧪 TEST: Concurrent Subscribers (50 clients)
+================================================================================
+
+✅ PASSED: Concurrent Subscribers
+   Subscribers: 50/50, Messages per subscriber: 50, Time: 1.58s, Throughput: 1579 msg/s
+
+================================================================================
+🧪 TEST: Backpressure - Slow Consumer
+================================================================================
+
+✅ PASSED: Backpressure Handling
+   Published: 2000, Received: 48, Dropped: 959, Publisher time: 0.42s, Total time: 12.92s
+
+================================================================================
+🧪 TEST: Message Replay
+================================================================================
+
+✅ PASSED: Message Replay
+   Replay messages: 20/20, Live messages: 10/10, Replay range: [80, 81, 82]...[97, 98, 99], Live range: [100, 101, 102]...[107, 108, 109]
+
+================================================================================
+🧪 TEST: Topic Deletion with Active Subscribers
+================================================================================
+
+✅ PASSED: Topic Deletion with Subscribers
+   Deletion status: 204, Subscribers affected: 0/10
+
+================================================================================
+🧪 TEST: Concurrent Topic Operations
+================================================================================
+
+✅ PASSED: Concurrent Topic Operations
+   Topics created: 50/50, Mixed operations: 40/40, Topics deleted: 50/50, Time: 0.12s
+
+================================================================================
+🧪 TEST: High Throughput - Single Topic
+================================================================================
+
+✅ PASSED: High Throughput
+   Total messages: 10000, Throughput: 376 msg/s, Time: 26.58s, Avg latency: 5486.73ms, P95: 10446.92ms, P99: 10888.09ms
+
+================================================================================
+🧪 TEST: WebSocket Reconnection
+================================================================================
+
+✅ PASSED: WebSocket Reconnection
+   Successfully reconnected and received messages
+
+================================================================================
+📊 TEST SUMMARY
+================================================================================
+✅ Concurrent Subscribers
+✅ Backpressure Handling
+✅ Message Replay
+✅ Topic Deletion with Subscribers
+✅ Concurrent Topic Operations
+✅ High Throughput
+✅ WebSocket Reconnection
+
+--------------------------------------------------------------------------------
+Total: 7/7 tests passed
+Success rate: 100.0%
+Total time: 44.98s
+================================================================================
+
