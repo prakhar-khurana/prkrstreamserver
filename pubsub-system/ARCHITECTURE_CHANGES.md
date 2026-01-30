@@ -277,3 +277,79 @@ Topic(
 ---
 
 **Ready for testing with existing stress tests!**
+
+---
+
+## 📊 Observability Dashboard
+
+A read-only Streamlit dashboard is provided to visualize internal system metrics.
+
+### Features
+
+| Page | Description |
+|------|-------------|
+| **System Overview** | Active topics, subscribers, publish/delivery rates, uptime |
+| **Topic Drilldown** | Per-topic queue depth, batch size, message counts over time |
+| **Latency Visualization** | Avg/P95/P99 latency with rolling window charts |
+| **Backpressure Visibility** | Drop counts, queue saturation gauges, flow comparison |
+
+### Metrics Endpoint
+
+The backend exposes a `/metrics` endpoint for the dashboard:
+
+```bash
+GET /metrics
+```
+
+Returns:
+```json
+{
+  "uptime_seconds": 123.45,
+  "topics": {
+    "orders": {
+      "queue_depth": 12,
+      "queue_max_size": 10000,
+      "batch_size_avg": 8.4,
+      "messages_published": 10450,
+      "messages_delivered": 9832,
+      "messages_dropped": 618,
+      "subscriber_count": 5,
+      "latency_ms": {
+        "avg": 12.5,
+        "p95": 43.2,
+        "p99": 78.1
+      }
+    }
+  },
+  "global": {
+    "active_topics": 3,
+    "active_subscribers": 15,
+    "total_published": 50000,
+    "total_delivered": 48500,
+    "total_dropped": 1500
+  }
+}
+```
+
+### Running the Dashboard
+
+```bash
+# Terminal 1: Start backend
+./run.sh
+
+# Terminal 2: Start dashboard
+cd dashboard
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Dashboard will be available at `http://localhost:8501`.
+
+### Important Notes
+
+- **READ-ONLY**: The dashboard does not modify backend state
+- **No WebSockets**: Uses HTTP polling only (`GET /metrics`)
+- **No Publishing**: Cannot send messages through the UI
+- **No Subscribing**: Cannot create WebSocket subscribers
+
+The dashboard is intended solely for monitoring, debugging, and demonstration.

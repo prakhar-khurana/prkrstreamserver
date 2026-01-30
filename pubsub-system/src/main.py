@@ -13,6 +13,10 @@ from .models.api import (
     HealthResponse,
     StatsResponse,
     TopicStats,
+    MetricsResponse,
+    TopicMetrics as TopicMetricsModel,
+    GlobalMetrics,
+    LatencyMetrics,
 )
 from .topics.topic_manager import TopicManager
 from .ws.handler import WebSocketHandler
@@ -180,6 +184,56 @@ async def get_stats() -> StatsResponse:
     
     return StatsResponse(topics=topics_stats)
 
+
+@app.get("/metrics", response_model=MetricsResponse)
+async def get_metrics() -> MetricsResponse:
+    """
+    Get detailed metrics for observability dashboard.
+    
+    Returns per-topic metrics including:
+    - Queue depth and saturation
+    - Batch size average
+    - Messages published/delivered/dropped
+    - Latency percentiles (avg, p95, p99)
+    
+    Also returns global aggregates for system overview.
+    """
+    uptime = get_current_timestamp() - app_state.start_time
+    metrics_data = app_state.topic_manager.get_all_metrics()
+    
+    # Convert to Pydantic models
+    topics_metrics: Dict[str, TopicMetricsModel] = {}
+    for topic_name, metrics in metrics_data["topics"].items():
+        latency = metrics.get("latency_ms", {})
+        topics_metrics[topic_name] = TopicMetricsModel(
+            queue_depth=metrics.get("queue_depth", 0),
+            queue_max_size=metrics.get("queue_max_size", 10000),
+            batch_size_avg=metrics.get("batch_size_avg", 0.0),
+            messages_published=metrics.get("messages_published", 0),
+            messages_delivered=metrics.get("messages_delivered", 0),
+            messages_dropped=metrics.get("messages_dropped", 0),
+            subscriber_count=metrics.get("subscriber_count", 0),
+            latency_ms=LatencyMetrics(
+                avg=latency.get("avg", 0.0),
+                p95=latency.get("p95", 0.0),
+                p99=latency.get("p99", 0.0)
+            )
+        )
+    
+    global_data = metrics_data["global"]
+    global_metrics = GlobalMetrics(
+        active_topics=global_data.get("active_topics", 0),
+        active_subscribers=global_data.get("active_subscribers", 0),
+        total_published=global_data.get("total_published", 0),
+        total_delivered=global_data.get("total_delivered", 0),
+        total_dropped=global_data.get("total_dropped", 0)
+    )
+    
+    return MetricsResponse(
+        uptime_seconds=uptime,
+        topics=topics_metrics,
+        **{"global": global_metrics}
+    )
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):

@@ -11,14 +11,14 @@ STARTING COMPREHENSIVE STRESS TEST SUITE
 ================================================================================
 
 ✅ PASSED: Concurrent Subscribers
-   Subscribers: 50/50, Messages per subscriber: 50, Time: 1.74s, Throughput: 1437 msg/s
+   Subscribers: 50/50, Messages per subscriber: 50, Time: 1.78s, Throughput: 1406 msg/s
 
 ================================================================================
 🧪 TEST: Backpressure - Slow Consumer
 ================================================================================
 
 ✅ PASSED: Backpressure Handling
-   Published: 500, Received: 32, Disconnected: False, Publisher time: 0.19s, Total time: 13.70s
+   Published: 500, Received: 32, Disconnected: False, Publisher time: 0.14s, Total time: 13.65s
 
 ================================================================================
 🧪 TEST: Message Replay
@@ -39,14 +39,14 @@ STARTING COMPREHENSIVE STRESS TEST SUITE
 ================================================================================
 
 ✅ PASSED: Concurrent Topic Operations
-   Topics created: 50/50, Mixed operations: 40/40, Topics deleted: 50/50, Time: 0.14s
+   Topics created: 50/50, Mixed operations: 40/40, Topics deleted: 50/50, Time: 0.13s
 
 ================================================================================
 🧪 TEST: High Throughput - Single Topic
 ================================================================================
 
 ✅ PASSED: High Throughput
-   Total messages: 10000, Throughput: 626 msg/s, Time: 15.97s, Avg latency: 7.42ms, P95: 8.98ms, P99: 10.08ms
+   Total messages: 10000, Throughput: 628 msg/s, Time: 15.93s, Avg latency: 5.80ms, P95: 10.51ms, P99: 16.54ms
 
 ================================================================================
 🧪 TEST: WebSocket Reconnection
@@ -69,6 +69,6 @@ STARTING COMPREHENSIVE STRESS TEST SUITE
 --------------------------------------------------------------------------------
 Total: 7/7 tests passed
 Success rate: 100.0%
-Total time: 35.28s
+Total time: 35.15s
 ================================================================================
 

@@ -49,6 +49,14 @@ class Topic:
         self._batch_size = batch_size
         self._batch_timeout_ms = batch_timeout_ms
         self._send_timeout_ms = send_timeout_ms  # Timeout for slow subscribers
+        
+        # Metrics tracking for observability dashboard
+        self._messages_published = 0
+        self._messages_delivered = 0
+        self._messages_dropped = 0
+        self._latencies: list = []  # Rolling window of recent latencies
+        self._batch_sizes: list = []  # Rolling window of batch sizes
+        self._max_metrics_samples = 1000  # Keep last N samples
     
     def add_subscriber(self, subscriber: Subscriber) -> None:
         with self._lock:
@@ -179,6 +187,12 @@ class Topic:
         if not batch:
             return
         
+        # Track batch size for metrics
+        with self._lock:
+            self._batch_sizes.append(len(batch))
+            if len(self._batch_sizes) > self._max_metrics_samples:
+                self._batch_sizes = self._batch_sizes[-self._max_metrics_samples:]
+        
         # Get subscriber snapshot (quick lock)
         with self._lock:
             subscribers = list(self._subscribers.values())
@@ -201,7 +215,19 @@ class Topic:
         # Wait for ALL sends to complete concurrently (not sequentially!)
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
+        # Calculate latency for this batch
+        delivery_time = time.time()
+        for msg in batch:
+            publish_time = msg.get("_publish_time")
+            if publish_time:
+                latency_ms = (delivery_time - publish_time) * 1000
+                with self._lock:
+                    self._latencies.append(latency_ms)
+                    if len(self._latencies) > self._max_metrics_samples:
+                        self._latencies = self._latencies[-self._max_metrics_samples:]
+        
         # Process results and remove failed subscribers
+        successful_deliveries = 0
         for subscriber, result in zip(active_subscribers, results):
             if isinstance(result, Exception):
                 logger.warning(f"Subscriber {subscriber.client_id} failed: {result}")
@@ -209,6 +235,12 @@ class Topic:
             elif result is False:
                 # Send failed or timed out
                 self.remove_subscriber(subscriber.client_id)
+            else:
+                successful_deliveries += 1
+        
+        # Update delivered count (messages * successful subscribers)
+        with self._lock:
+            self._messages_delivered += len(batch) * successful_deliveries
     
     async def _send_with_timeout(self, subscriber: Subscriber, batch: List[dict]) -> bool:
         """
@@ -253,13 +285,15 @@ class Topic:
             "type": "event",
             "topic": self.name,
             "data": data,
-            "message_id": message_id
+            "message_id": message_id,
+            "_publish_time": time.time()  # For latency tracking
         }
         
         # Add to replay buffer and update stats
         with self._lock:
             self._message_buffer.append(message)
             self._message_count += 1
+            self._messages_published += 1
             subscriber_count = len(self._subscribers)
         
         # Enqueue for async delivery (non-blocking)
@@ -267,6 +301,8 @@ class Topic:
             self._message_queue.put_nowait(message)
         except asyncio.QueueFull:
             logger.warning(f"Topic {self.name} message queue full, dropping message")
+            with self._lock:
+                self._messages_dropped += 1
         
         return subscriber_count
     
@@ -276,6 +312,48 @@ class Topic:
     def get_message_count(self) -> int:
         with self._lock:
             return self._message_count
+    
+    def get_metrics(self) -> dict:
+        """
+        Get detailed metrics for this topic.
+        Used by the observability dashboard via /metrics endpoint.
+        
+        Returns:
+            Dict with queue_depth, batch_size_avg, message counts, and latency percentiles.
+        """
+        with self._lock:
+            # Calculate latency percentiles
+            latencies = self._latencies[-self._max_metrics_samples:]
+            if latencies:
+                sorted_latencies = sorted(latencies)
+                avg_latency = sum(latencies) / len(latencies)
+                p95_idx = min(int(len(sorted_latencies) * 0.95), len(sorted_latencies) - 1)
+                p99_idx = min(int(len(sorted_latencies) * 0.99), len(sorted_latencies) - 1)
+                p95_latency = sorted_latencies[p95_idx]
+                p99_latency = sorted_latencies[p99_idx]
+            else:
+                avg_latency = 0.0
+                p95_latency = 0.0
+                p99_latency = 0.0
+            
+            # Calculate batch size average
+            batch_sizes = self._batch_sizes[-self._max_metrics_samples:]
+            batch_size_avg = sum(batch_sizes) / len(batch_sizes) if batch_sizes else 0.0
+            
+            return {
+                "queue_depth": self._message_queue.qsize(),
+                "queue_max_size": self._message_queue.maxsize,
+                "batch_size_avg": round(batch_size_avg, 2),
+                "messages_published": self._messages_published,
+                "messages_delivered": self._messages_delivered,
+                "messages_dropped": self._messages_dropped,
+                "subscriber_count": len(self._subscribers),
+                "latency_ms": {
+                    "avg": round(avg_latency, 2),
+                    "p95": round(p95_latency, 2),
+                    "p99": round(p99_latency, 2)
+                }
+            }
     
     async def close_all_subscribers(self) -> None:
         """Called when topic is being deleted."""
@@ -419,6 +497,47 @@ class TopicManager:
             }
         
         return stats
+    
+    def get_all_metrics(self) -> Dict[str, any]:
+        """
+        Get detailed metrics for all topics and global aggregates.
+        Used by the observability dashboard.
+        
+        Returns a structure suitable for the /metrics endpoint:
+        {
+            "topics": { topic_name: topic_metrics, ... },
+            "global": { aggregated stats }
+        }
+        """
+        with self._global_lock:
+            topics_snapshot = dict(self._topics)
+        
+        topics_metrics = {}
+        total_published = 0
+        total_delivered = 0
+        total_dropped = 0
+        total_subscribers = 0
+        
+        for name, topic in topics_snapshot.items():
+            metrics = topic.get_metrics()
+            topics_metrics[name] = metrics
+            
+            # Aggregate global stats
+            total_published += metrics.get("messages_published", 0)
+            total_delivered += metrics.get("messages_delivered", 0)
+            total_dropped += metrics.get("messages_dropped", 0)
+            total_subscribers += metrics.get("subscriber_count", 0)
+        
+        return {
+            "topics": topics_metrics,
+            "global": {
+                "active_topics": len(topics_snapshot),
+                "active_subscribers": total_subscribers,
+                "total_published": total_published,
+                "total_delivered": total_delivered,
+                "total_dropped": total_dropped
+            }
+        }
     
     def get_total_subscriber_count(self) -> int:
         """
