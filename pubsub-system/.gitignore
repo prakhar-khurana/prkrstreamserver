@@ -31,3 +31,4 @@ venv/
 *.swo
 *~
 .DS_Store
+Dockerfile
